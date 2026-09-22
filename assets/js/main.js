@@ -59,11 +59,26 @@ const controls = new OrbitControls(
     camera,
     renderer.domElement
 );
+// ============================================================
+// CÁMARA DE TERCERA PERSONA
+// ============================================================
+
+const cameraFollowPosition = new THREE.Vector3();
+
+const lastCharacterPosition = new THREE.Vector3();
+
+let cameraFollowInitialized = false;
 
 controls.enableDamping = true;
 controls.enablePan = false;
-controls.minDistance = 3;
-controls.maxDistance = 14;
+
+// Cámara más cercana al personaje.
+controls.minDistance = 1.2;
+controls.maxDistance = 3.5;
+
+// Evita que la cámara pueda voltearse completamente
+// por debajo del escenario.
+controls.maxPolarAngle = Math.PI * 0.48;
 
 const physicsWorld = new RAPIER.World({
     x: 0,
@@ -571,19 +586,96 @@ function updateCharacter(delta) {
 function syncCharacter() {
     if (!character) return;
 
-    const p =
-        characterBody.translation();
+    const p = characterBody.translation();
+
+
+    // ========================================================
+    // SINCRONIZAR MODELO CON RAPIER
+    // ========================================================
 
     character.position.set(
         p.x,
         p.y - 0.42,
         p.z
     );
-    controls.target.set(
+
+
+    // ========================================================
+    // PUNTO QUE MIRA LA CÁMARA
+    // ========================================================
+
+    const cameraTarget = new THREE.Vector3(
         p.x,
-        p.y + 0.7,
+        p.y + 0.15,
         p.z
     );
+
+
+    // ========================================================
+    // POSICIÓN INICIAL DE LA CÁMARA
+    // ========================================================
+
+    if (!cameraFollowInitialized) {
+
+        // La colocamos detrás y ligeramente arriba.
+        camera.position.set(
+            p.x,
+            p.y + 0.75,
+            p.z - 2.2
+        );
+
+        controls.target.copy(
+            cameraTarget
+        );
+
+        lastCharacterPosition.set(
+            p.x,
+            p.y,
+            p.z
+        );
+
+        cameraFollowInitialized = true;
+
+        controls.update();
+
+        return;
+    }
+
+
+    // ========================================================
+    // SEGUIR EL MOVIMIENTO DEL PERSONAJE
+    // ========================================================
+
+    cameraFollowPosition.set(
+        p.x,
+        p.y,
+        p.z
+    );
+
+    const movement =
+        cameraFollowPosition
+            .clone()
+            .sub(lastCharacterPosition);
+
+
+    // Movemos la cámara la misma distancia
+    // que avanzó el personaje.
+    camera.position.add(
+        movement
+    );
+
+
+    // La cámara siempre mira al personaje.
+    controls.target.copy(
+        cameraTarget
+    );
+
+
+    // Guardar posición para el siguiente frame.
+    lastCharacterPosition.copy(
+        cameraFollowPosition
+    );
+
 
     controls.update();
 }
@@ -648,41 +740,115 @@ document.addEventListener('keydown', (event) => {
 
 function throwObject() {
     if (!character) return;
+
     canThrow = false;
+
     playAction('throw');
 
     const p = characterBody.translation();
+
     const dir = new THREE.Vector3(0, 0, 1)
         .applyQuaternion(character.quaternion)
         .normalize();
 
+
+    // ========================================================
+    // PROYECTIL VISUAL
+    // ========================================================
+
     const mesh = new THREE.Mesh(
-    new THREE.SphereGeometry(
-        0.10,
-        16,
-        16
-    ),
-    new THREE.MeshStandardMaterial({
-        color: 0x8B5A2B,
-        roughness: 0.8
-    })
-);
+        new THREE.SphereGeometry(
+            0.10,
+            16,
+            16
+        ),
+        new THREE.MeshStandardMaterial({
+            color: 0x8B5A2B,
+            roughness: 0.8
+        })
+    );
+
+    mesh.castShadow = true;
+
     scene.add(mesh);
 
-    const start = new THREE.Vector3(p.x, p.y + 0.6, p.z).addScaledVector(dir, 0.9);
-    const body = physicsWorld.createRigidBody(
-        RAPIER.RigidBodyDesc.dynamic().setTranslation(start.x, start.y, start.z)
-    );
-    physicsWorld.createCollider(
-    RAPIER.ColliderDesc
-        .ball(0.10)
-        .setRestitution(0.25),
-    body
-);
-    body.setLinvel({ x: dir.x * 13, y: 2.2, z: dir.z * 13 }, true);
 
-    dynamicObjects.push({ mesh, body });
-    setTimeout(() => { canThrow = true; }, 550);
+    // ========================================================
+    // POSICIÓN DE SALIDA
+    // ========================================================
+
+    const start = new THREE.Vector3(
+        p.x,
+        p.y + 0.22,
+        p.z
+    ).addScaledVector(
+        dir,
+        0.55
+    );
+
+
+    // ========================================================
+    // CUERPO FÍSICO
+    // ========================================================
+
+    const body = physicsWorld.createRigidBody(
+        RAPIER.RigidBodyDesc
+            .dynamic()
+            .setTranslation(
+                start.x,
+                start.y,
+                start.z
+            )
+    );
+
+
+    // ========================================================
+    // COLLIDER DEL PROYECTIL
+    // ========================================================
+
+    const projectileCollider =
+        RAPIER.ColliderDesc
+            .ball(0.10)
+
+            // Aunque visualmente sea pequeño,
+            // tendrá suficiente masa para empujar cajas.
+            .setMass(1.0)
+
+            .setRestitution(0.25);
+
+    physicsWorld.createCollider(
+        projectileCollider,
+        body
+    );
+
+
+    // ========================================================
+    // VELOCIDAD
+    // ========================================================
+
+    body.setLinvel(
+        {
+            x: dir.x * 15,
+            y: 1.0,
+            z: dir.z * 15
+        },
+        true
+    );
+
+
+    dynamicObjects.push({
+        mesh,
+        body
+    });
+
+
+    // Pequeño tiempo entre lanzamientos.
+    setTimeout(
+        () => {
+            canThrow = true;
+        },
+        550
+    );
 }
 
 function syncDynamicObjects() {

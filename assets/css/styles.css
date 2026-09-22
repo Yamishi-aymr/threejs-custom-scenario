@@ -1,3 +1,7 @@
+/* ============================================================
+   CONFIGURACIÓN GENERAL
+============================================================ */
+
 * {
     box-sizing: border-box;
 }
@@ -11,50 +15,604 @@ body {
 }
 
 body {
-    font-family: Arial, sans-serif;
-    background: #07111f;
-    color: white;
+    font-family: "Rajdhani", sans-serif;
+
+    background:
+        #05080d;
+
+    color:
+        #ffffff;
+
+    user-select: none;
 }
+
+
+/* ============================================================
+   ESCENARIO THREE.JS
+============================================================ */
 
 #scene-container {
     position: fixed;
+
     inset: 0;
+
+    width: 100%;
+    height: 100%;
+
+    z-index: 0;
 }
 
 canvas {
     display: block;
+
+    width: 100%;
+    height: 100%;
 }
+
+
+/* ============================================================
+   EFECTO CINEMATOGRÁFICO
+============================================================ */
+
+.screen-overlay {
+    position: fixed;
+
+    inset: 0;
+
+    z-index: 2;
+
+    pointer-events: none;
+
+    background:
+        radial-gradient(
+            circle at center,
+            transparent 50%,
+            rgba(0, 0, 0, 0.22) 80%,
+            rgba(0, 0, 0, 0.55) 100%
+        );
+}
+
+
+/* ============================================================
+   HUD PRINCIPAL
+============================================================ */
 
 .hud {
     position: fixed;
+
+    top: 22px;
+    left: 24px;
+
     z-index: 10;
-    top: 16px;
-    left: 16px;
-    max-width: 460px;
-    background: rgba(7, 17, 31, .82);
-    backdrop-filter: blur(10px);
-    border-left: 4px solid #22d3ee;
+
+    width: min(470px, calc(100% - 48px));
+
+    padding:
+        18px 20px 17px;
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(12, 14, 17, 0.91),
+            rgba(25, 22, 20, 0.78)
+        );
+
+    border:
+        1px solid rgba(255, 255, 255, 0.10);
+
+    border-left:
+        3px solid #8b3d28;
+
+    clip-path:
+        polygon(
+            0 0,
+            calc(100% - 18px) 0,
+            100% 18px,
+            100% 100%,
+            18px 100%,
+            0 calc(100% - 18px)
+        );
+
+    backdrop-filter:
+        blur(10px);
+
+    -webkit-backdrop-filter:
+        blur(10px);
+
+    box-shadow:
+        0 12px 35px rgba(0, 0, 0, 0.30);
 }
+
+
+/* ============================================================
+   CABECERA DEL HUD
+============================================================ */
+
+.hud-header {
+    display: flex;
+
+    align-items: center;
+
+    gap: 14px;
+}
+
+
+/* Símbolo decorativo */
+
+.hud-symbol {
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    width: 42px;
+    height: 42px;
+
+    flex-shrink: 0;
+
+    font-family:
+        "Cinzel",
+        serif;
+
+    font-size: 1.25rem;
+
+    color:
+        #c58a68;
+
+    border:
+        1px solid rgba(197, 138, 104, 0.55);
+
+    transform:
+        rotate(45deg);
+}
+
+.hud-symbol::first-letter {
+    transform:
+        rotate(-45deg);
+}
+
+
+/* Texto pequeño superior */
+
+.hud-label {
+    display: block;
+
+    margin-bottom: 3px;
+
+    font-family:
+        "Rajdhani",
+        sans-serif;
+
+    font-size: 0.72rem;
+
+    font-weight: 600;
+
+    letter-spacing:
+        0.22em;
+
+    color:
+        #c58a68;
+}
+
+
+/* Título */
+
+.hud h1 {
+    margin: 0;
+
+    font-family:
+        "Cinzel",
+        serif;
+
+    font-size:
+        clamp(
+            1rem,
+            2vw,
+            1.32rem
+        );
+
+    font-weight: 600;
+
+    letter-spacing:
+        0.04em;
+
+    color:
+        #f3f0eb;
+
+    text-transform:
+        uppercase;
+}
+
+
+/* ============================================================
+   DIVISOR
+============================================================ */
+
+.hud-divider {
+    width: 100%;
+    height: 1px;
+
+    margin:
+        14px 0;
+
+    background:
+        linear-gradient(
+            90deg,
+            rgba(197, 138, 104, 0.7),
+            rgba(197, 138, 104, 0.15),
+            transparent
+        );
+}
+
+
+/* ============================================================
+   CONTROLES
+============================================================ */
+
+.controls {
+    display: flex;
+
+    flex-wrap: wrap;
+
+    gap:
+        8px 14px;
+}
+
+.control-item {
+    display: flex;
+
+    align-items: center;
+
+    gap: 7px;
+
+    font-size:
+        0.82rem;
+
+    font-weight:
+        500;
+
+    letter-spacing:
+        0.05em;
+
+    color:
+        rgba(255, 255, 255, 0.72);
+}
+
+
+/* Teclas */
+
+.control-item kbd {
+    min-width: 30px;
+
+    padding:
+        3px 7px;
+
+    font-family:
+        "Rajdhani",
+        sans-serif;
+
+    font-size:
+        0.72rem;
+
+    font-weight:
+        700;
+
+    text-align:
+        center;
+
+    color:
+        #f4eee9;
+
+    background:
+        rgba(255, 255, 255, 0.07);
+
+    border:
+        1px solid rgba(255, 255, 255, 0.16);
+
+    border-bottom:
+        2px solid rgba(139, 61, 40, 0.8);
+
+    border-radius:
+        2px;
+
+    box-shadow:
+        none;
+}
+
+
+/* ============================================================
+   ESTADO DEL ESCENARIO
+============================================================ */
+
+.scene-status {
+    position: fixed;
+
+    top: 25px;
+    right: 26px;
+
+    z-index: 10;
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 8px;
+
+    padding:
+        7px 11px;
+
+    font-size:
+        0.68rem;
+
+    font-weight:
+        600;
+
+    letter-spacing:
+        0.16em;
+
+    color:
+        rgba(255, 255, 255, 0.65);
+
+    background:
+        rgba(7, 9, 12, 0.62);
+
+    border:
+        1px solid rgba(255, 255, 255, 0.08);
+
+    backdrop-filter:
+        blur(8px);
+}
+
+
+/* Punto indicador */
+
+.status-dot {
+    width: 6px;
+    height: 6px;
+
+    border-radius:
+        50%;
+
+    background:
+        #a96c4f;
+
+    box-shadow:
+        0 0 7px rgba(169, 108, 79, 0.7);
+}
+
+
+/* ============================================================
+   MARCADOR CENTRAL
+============================================================ */
+
+.center-marker {
+    position: fixed;
+
+    top: 50%;
+    left: 50%;
+
+    z-index: 8;
+
+    width: 7px;
+    height: 7px;
+
+    transform:
+        translate(-50%, -50%);
+
+    pointer-events:
+        none;
+}
+
+.center-marker::before,
+.center-marker::after {
+    content: "";
+
+    position: absolute;
+
+    top: 50%;
+    left: 50%;
+
+    background:
+        rgba(255, 255, 255, 0.35);
+
+    transform:
+        translate(-50%, -50%);
+}
+
+.center-marker::before {
+    width: 7px;
+    height: 1px;
+}
+
+.center-marker::after {
+    width: 1px;
+    height: 7px;
+}
+
+
+/* ============================================================
+   FOOTER
+============================================================ */
 
 .app-footer {
     position: fixed;
-    z-index: 10;
+
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(7, 17, 31, .82);
-    backdrop-filter: blur(8px);
+
+    z-index: 10;
+
+    padding:
+        9px 20px 11px;
+
+    color:
+        rgba(255, 255, 255, 0.55);
+
+    background:
+        linear-gradient(
+            0deg,
+            rgba(4, 6, 9, 0.93),
+            rgba(4, 6, 9, 0.70),
+            transparent
+        );
+
+    backdrop-filter:
+        blur(4px);
+
+    -webkit-backdrop-filter:
+        blur(4px);
 }
 
-@media (max-width: 576px) {
+
+/* Línea decorativa */
+
+.footer-line {
+    width:
+        min(640px, 80%);
+
+    height:
+        1px;
+
+    margin:
+        0 auto 8px;
+
+    background:
+        linear-gradient(
+            90deg,
+            transparent,
+            rgba(139, 61, 40, 0.65),
+            transparent
+        );
+}
+
+
+/* Contenido */
+
+.footer-content {
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    flex-wrap: wrap;
+
+    gap: 7px;
+
+    text-align: center;
+
+    font-size:
+        0.7rem;
+
+    letter-spacing:
+        0.07em;
+}
+
+.footer-name {
+    font-family:
+        "Cinzel",
+        serif;
+
+    font-weight:
+        500;
+
+    color:
+        rgba(255, 255, 255, 0.78);
+}
+
+.footer-separator {
+    color:
+        #8b3d28;
+}
+
+
+/* ============================================================
+   RESPONSIVE
+============================================================ */
+
+@media (max-width: 700px) {
+
     .hud {
-        right: 12px;
+        top: 12px;
         left: 12px;
-        max-width: none;
-        font-size: .82rem;
+
+        width:
+            calc(100% - 24px);
+
+        padding:
+            14px 15px;
     }
 
-    .app-footer {
-        font-size: .68rem;
+
+    .hud-symbol {
+        width: 35px;
+        height: 35px;
+
+        font-size:
+            1rem;
     }
+
+
+    .hud h1 {
+        font-size:
+            0.95rem;
+    }
+
+
+    .hud-label {
+        font-size:
+            0.62rem;
+    }
+
+
+    .controls {
+        gap:
+            7px 10px;
+    }
+
+
+    .control-item {
+        font-size:
+            0.72rem;
+    }
+
+
+    .scene-status {
+        top: auto;
+        right: 12px;
+        bottom: 70px;
+
+        font-size:
+            0.58rem;
+    }
+
+
+    .footer-content {
+        font-size:
+            0.62rem;
+
+        gap: 4px;
+    }
+
+}
+
+
+@media (max-width: 480px) {
+
+    .hud-symbol {
+        display: none;
+    }
+
+
+    .footer-separator {
+        display: none;
+    }
+
+
+    .footer-content {
+        flex-direction: column;
+
+        gap: 1px;
+    }
+
 }
