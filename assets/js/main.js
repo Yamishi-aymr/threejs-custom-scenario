@@ -206,36 +206,190 @@ const actions = {};
 
 let currentAction = null;
 
+
+// ------------------------------------------------------------
+// CONVERTIR ANIMACIONES A "IN PLACE"
+// Evita que Walk, Run, Idle o Throw desplacen el personaje.
+// El movimiento real lo controla Rapier.
+// ------------------------------------------------------------
+
+function makeClipInPlace(originalClip, hips) {
+
+    // Trabajamos con una copia para no modificar
+    // la animación original.
+    const clip = originalClip.clone();
+
+    if (!hips) {
+        console.warn(
+            '⚠️ No se encontró el hueso Hips.'
+        );
+
+        return clip;
+    }
+
+    // Buscamos la pista que mueve la posición
+    // del hueso principal de Mixamo.
+    const positionTrack = clip.tracks.find(
+        (track) =>
+            track.name.endsWith('.position') &&
+            (
+                track.name.includes('mixamorig:Hips') ||
+                track.name.includes('Hips')
+            )
+    );
+
+    if (!positionTrack) {
+        return clip;
+    }
+
+    const values = positionTrack.values;
+
+    // Posición original del esqueleto.
+    const baseX = hips.position.x;
+    const baseY = hips.position.y;
+    const baseZ = hips.position.z;
+
+    // Altura inicial de esta animación.
+    const startY = values[1];
+
+    // Cada posición contiene:
+    // X, Y, Z
+    for (
+        let i = 0;
+        i < values.length;
+        i += 3
+    ) {
+
+        // Eliminamos movimiento lateral.
+        values[i] = baseX;
+
+        // Conservamos únicamente el movimiento
+        // vertical natural del cuerpo.
+        values[i + 1] =
+            baseY +
+            (values[i + 1] - startY);
+
+        // Eliminamos movimiento hacia adelante/atrás.
+        values[i + 2] = baseZ;
+    }
+
+    return clip;
+}
+
+
 loader.load(
     './assets/models/character/character.glb',
+
     (gltf) => {
+
         character = gltf.scene;
 
+        // Escala que ya elegiste.
         character.scale.setScalar(0.5);
 
-        character.traverse((child) => {
-            if (child.isMesh) {
-                child.castShadow = true;
+        character.traverse(
+            (child) => {
+
+                if (child.isMesh) {
+                    child.castShadow = true;
+                }
+
             }
-        });
+        );
 
         scene.add(character);
+
+
+        // ----------------------------------------------------
+        // ANIMATION MIXER
+        // ----------------------------------------------------
 
         mixer = new THREE.AnimationMixer(
             character
         );
 
-        for (const clip of gltf.animations) {
-            actions[
-                clip.name.toLowerCase()
-            ] = mixer.clipAction(clip);
+
+        // ----------------------------------------------------
+        // BUSCAR EL HUESO PRINCIPAL
+        // ----------------------------------------------------
+
+        const hips =
+            character.getObjectByName(
+                'mixamorig:Hips'
+            );
+
+        if (hips) {
+
+            console.log(
+                '✅ Hips encontrado:',
+                hips.name
+            );
+
+        } else {
+
+            console.warn(
+                '⚠️ No se encontró mixamorig:Hips'
+            );
+
         }
 
+
+        // ----------------------------------------------------
+        // PREPARAR ANIMACIONES
+        // ----------------------------------------------------
+
+        for (
+            const originalClip
+            of gltf.animations
+        ) {
+
+            const name =
+                originalClip.name.toLowerCase();
+
+            // Convertimos la animación a
+            // movimiento "in place".
+            const clip =
+                makeClipInPlace(
+                    originalClip,
+                    hips
+                );
+
+            actions[name] =
+                mixer.clipAction(clip);
+
+            console.log(
+                `🎬 Animación cargada: ${name}`
+            );
+        }
+
+
+        // ----------------------------------------------------
+        // ANIMACIÓN INICIAL
+        // ----------------------------------------------------
+
         playAction('idle');
+
+    },
+
+    undefined,
+
+    (error) => {
+
+        console.error(
+            '❌ Error cargando personaje:',
+            error
+        );
+
     }
 );
 
+
+// ============================================================
+// CAMBIAR ANIMACIÓN
+// ============================================================
+
 function playAction(name) {
+
     const next = actions[name];
 
     if (
@@ -245,12 +399,19 @@ function playAction(name) {
         return;
     }
 
-    currentAction?.fadeOut(0.2);
 
+    // Desvanecer animación anterior.
+    if (currentAction) {
+        currentAction.fadeOut(0.2);
+    }
+
+
+    // Activar nueva animación.
     next
         .reset()
         .fadeIn(0.2)
         .play();
+
 
     currentAction = next;
 }
