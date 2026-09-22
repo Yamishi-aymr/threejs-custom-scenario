@@ -10,6 +10,7 @@ const container = document.getElementById('scene-container');
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x07111f);
 
+
 const camera = new THREE.PerspectiveCamera(
     60,
     window.innerWidth / window.innerHeight,
@@ -74,6 +75,7 @@ const loader = new GLTFLoader();
 
 const timer = new THREE.Timer();
 
+let worldReady = false;
 
 // ============================================================
 // PASO 4 - CARGAR LA CIUDAD Y CREAR COLLIDERS
@@ -128,11 +130,42 @@ function createStaticTrimesh(mesh) {
 }
 
 loader.load(
-    './assets/models/city/scene.gltf',
+    './assets/models/street/scene.gltf',
     (gltf) => {
-        const city = gltf.scene;
+        const street = gltf.scene;
 
-        city.traverse((child) => {
+        // =====================================================
+        // AJUSTAR ESCALA DEL NUEVO ESCENARIO
+        // =====================================================
+
+        street.scale.setScalar(0.03);
+
+        // Actualizamos las matrices antes de medirlo.
+        street.updateMatrixWorld(true);
+
+
+        // =====================================================
+        // CENTRAR EL ESCENARIO AUTOMÁTICAMENTE
+        // =====================================================
+
+        const box = new THREE.Box3().setFromObject(street);
+        const center = new THREE.Vector3();
+
+        box.getCenter(center);
+
+        // Centramos X y Z.
+        // Dejamos Y respetando la altura original del suelo.
+        street.position.x -= center.x;
+        street.position.z -= center.z;
+
+        street.updateMatrixWorld(true);
+
+
+        // =====================================================
+        // CREAR COLLIDERS
+        // =====================================================
+
+        street.traverse((child) => {
             if (!child.isMesh) return;
 
             child.castShadow = true;
@@ -141,7 +174,28 @@ loader.load(
             createStaticTrimesh(child);
         });
 
-        scene.add(city);
+
+        scene.add(street);
+
+        // Ahora que existe el suelo físico,
+        // creamos los objetos dinámicos.
+        createBoxPyramid();
+
+        // Activamos las físicas.
+        worldReady = true;
+
+        console.log('✅ Nuevo escenario cargado');
+        console.log('✅ Objetos dinámicos creados');
+        console.log('✅ Físicas activadas');
+    },
+
+    undefined,
+
+    (error) => {
+        console.error(
+            '❌ Error cargando escenario:',
+            error
+        );
     }
 );
 
@@ -153,11 +207,14 @@ loader.load(
 const characterBody = physicsWorld.createRigidBody(
     RAPIER.RigidBodyDesc
         .kinematicPositionBased()
-        .setTranslation(0, 0.38, -6)
+        .setTranslation(-9.5, 0.86, -3.5)
 );
 
 const characterCollider = physicsWorld.createCollider(
-    RAPIER.ColliderDesc.capsule(0.22, 0.14),
+    RAPIER.ColliderDesc.capsule(
+        0.14,
+        0.20
+    ),
     characterBody
 );
 
@@ -174,10 +231,14 @@ characterController.enableSnapToGround(
     0.35
 );
 
+// Permite empujar cuerpos dinámicos.
 characterController.setApplyImpulsesToDynamicBodies(
     true
 );
 
+// Masa virtual usada para calcular
+// la fuerza con la que el personaje empuja.
+characterController.setCharacterMass(12);
 const keyStates = {};
 
 document.addEventListener(
@@ -213,64 +274,55 @@ let currentAction = null;
 // El movimiento real lo controla Rapier.
 // ------------------------------------------------------------
 
-function makeClipInPlace(originalClip, hips) {
-
-    // Trabajamos con una copia para no modificar
-    // la animación original.
+function makeClipInPlace(originalClip) {
     const clip = originalClip.clone();
 
-    if (!hips) {
-        console.warn(
-            '⚠️ No se encontró el hueso Hips.'
-        );
+    for (const track of clip.tracks) {
 
-        return clip;
-    }
-
-    // Buscamos la pista que mueve la posición
-    // del hueso principal de Mixamo.
-    const positionTrack = clip.tracks.find(
-        (track) =>
-            track.name.endsWith('.position') &&
+        const isHipsPosition =
             (
                 track.name.includes('mixamorig:Hips') ||
                 track.name.includes('Hips')
-            )
-    );
+            ) &&
+            (
+                track.name.endsWith('.position') ||
+                track.name.endsWith('.translation')
+            );
 
-    if (!positionTrack) {
-        return clip;
-    }
+        if (!isHipsPosition) {
+            continue;
+        }
 
-    const values = positionTrack.values;
+        const values = track.values;
 
-    // Posición original del esqueleto.
-    const baseX = hips.position.x;
-    const baseY = hips.position.y;
-    const baseZ = hips.position.z;
+        if (values.length < 3) {
+            continue;
+        }
 
-    // Altura inicial de esta animación.
-    const startY = values[1];
+        // Primer frame de la animación.
+        const startX = values[0];
+        const startY = values[1];
+        const startZ = values[2];
 
-    // Cada posición contiene:
-    // X, Y, Z
-    for (
-        let i = 0;
-        i < values.length;
-        i += 3
-    ) {
+        for (let i = 0; i < values.length; i += 3) {
 
-        // Eliminamos movimiento lateral.
-        values[i] = baseX;
+            // Eliminar desplazamiento lateral.
+            values[i] = startX;
 
-        // Conservamos únicamente el movimiento
-        // vertical natural del cuerpo.
-        values[i + 1] =
-            baseY +
-            (values[i + 1] - startY);
+            // Mantener el movimiento vertical natural
+            // de la caminata.
+            values[i + 1] =
+                startY +
+                (values[i + 1] - startY);
 
-        // Eliminamos movimiento hacia adelante/atrás.
-        values[i + 2] = baseZ;
+            // Eliminar completamente el avance/retroceso
+            // incorporado en la animación.
+            values[i + 2] = startZ;
+        }
+
+        console.log(
+            `✅ Root Motion eliminado de: ${clip.name}`
+        );
     }
 
     return clip;
@@ -285,7 +337,7 @@ loader.load(
         character = gltf.scene;
 
         // Escala que ya elegiste.
-        character.scale.setScalar(0.5);
+        character.scale.setScalar(0.4);
 
         character.traverse(
             (child) => {
@@ -350,8 +402,7 @@ loader.load(
             // movimiento "in place".
             const clip =
                 makeClipInPlace(
-                    originalClip,
-                    hips
+                    originalClip
                 );
 
             actions[name] =
@@ -525,7 +576,7 @@ function syncCharacter() {
 
     character.position.set(
         p.x,
-        p.y - 0.35,
+        p.y - 0.42,
         p.z
     );
     controls.target.set(
@@ -541,7 +592,10 @@ const dynamicObjects = [];
 function createBox(x, y, z, sx = 1, sy = 1, sz = 1, mass = 3) {
     const mesh = new THREE.Mesh(
         new THREE.BoxGeometry(sx, sy, sz),
-        new THREE.MeshStandardMaterial({ color: 0x9aa7b8, roughness: 0.7 })
+        new THREE.MeshStandardMaterial({
+    color: 0xBB5A22,
+    roughness: 0.8
+})
     );
     mesh.castShadow = true;
     mesh.receiveShadow = true;
@@ -559,9 +613,31 @@ function createBox(x, y, z, sx = 1, sy = 1, sz = 1, mass = 3) {
 }
 
 // Pirámide de cajas.
-for (let level = 0; level < 3; level++) {
-    for (let i = 0; i < 3 - level; i++) {
-        createBox(3 + i * 1.1 + level * 0.55, 0.55 + level, -4, 1, 1, 1, 4);
+function createBoxPyramid() {
+    const boxSize = 0.65;
+    const separation = 0.72;
+
+    for (let level = 0; level < 3; level++) {
+
+        for (let i = 0; i < 3 - level; i++) {
+
+            createBox(
+                -7
+                    + i * separation
+                    + level * (separation / 2),
+
+                0.9
+                    + level * separation,
+
+                -3.5,
+
+                boxSize,
+                boxSize,
+                boxSize,
+
+                2
+            );
+        }
     }
 }
 let canThrow = true;
@@ -581,16 +657,28 @@ function throwObject() {
         .normalize();
 
     const mesh = new THREE.Mesh(
-        new THREE.SphereGeometry(0.18, 16, 16),
-        new THREE.MeshStandardMaterial({ color: 0x22d3ee, emissive: 0x063b49 })
-    );
+    new THREE.SphereGeometry(
+        0.10,
+        16,
+        16
+    ),
+    new THREE.MeshStandardMaterial({
+        color: 0x8B5A2B,
+        roughness: 0.8
+    })
+);
     scene.add(mesh);
 
     const start = new THREE.Vector3(p.x, p.y + 0.6, p.z).addScaledVector(dir, 0.9);
     const body = physicsWorld.createRigidBody(
         RAPIER.RigidBodyDesc.dynamic().setTranslation(start.x, start.y, start.z)
     );
-    physicsWorld.createCollider(RAPIER.ColliderDesc.ball(0.18).setRestitution(0.25), body);
+    physicsWorld.createCollider(
+    RAPIER.ColliderDesc
+        .ball(0.10)
+        .setRestitution(0.25),
+    body
+);
     body.setLinvel({ x: dir.x * 13, y: 2.2, z: dir.z * 13 }, true);
 
     dynamicObjects.push({ mesh, body });
@@ -608,17 +696,33 @@ function syncDynamicObjects() {
 
 function animate() {
     timer.update();
-    const delta = Math.min(0.05, timer.getDelta());
 
-    updateCharacter(delta);
-    physicsWorld.timestep = delta;
-    physicsWorld.step();
+    const delta = Math.min(
+        0.05,
+        timer.getDelta()
+    );
 
-    syncCharacter();
-    syncDynamicObjects();
-    if (mixer) mixer.update(delta);
+    // Las físicas solamente funcionan
+    // cuando el escenario está completamente cargado.
+    if (worldReady) {
 
-    renderer.render(scene, camera);
+        updateCharacter(delta);
+
+        physicsWorld.timestep = delta;
+        physicsWorld.step();
+
+        syncCharacter();
+        syncDynamicObjects();
+    }
+
+    if (mixer) {
+        mixer.update(delta);
+    }
+
+    renderer.render(
+        scene,
+        camera
+    );
 }
 renderer.setAnimationLoop(animate);
 
